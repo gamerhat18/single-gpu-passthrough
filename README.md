@@ -4,31 +4,6 @@
 # Single GPU Passthrough on Linux  
 This guide is to help people through the process of using GPU Passthrough via libvirt/virt-manager on systems that only have one GPU. 
 
-## Special Thanks to:
-
-#### [joeknock90](https://github.com/joeknock90)
-This guide was forked from his repo. 
-
-#### [The Passthrough post](https://passthroughpo.st)
-For hosting news and information about VFIO passthrough, and for the libvirt/qemu hook helper in this guide.
-
-#### andre-ritcher
-For providing the vfio-pci-bind tool. A tool that is no longer used in this guide, but was previously used and he still deserves thanks.
-
-#### Matoking
-For the Nvidia ROM patcher. Making passing the boot gpu to the VM without GPU bios problems.
-
-#### Sporif
-For diagnosing, developing, and testing methods to successfully rebind the EFI-Framebuffer when passing the video card back to the host OS.
-
-#### droidman
-For instructions on manually editing the vBIOS hex for use with VFIO passthrough
-
-#### [Yuri Alek](https://gitlab.com/YuriAlek/vfio)
-A guide that is no doubt better than mine. Learning a few things from his implementation that can help me out a bit. This guide depends on libvirt at the base where as his has implementations that do not. 
-
-#### So many other people and organizations I need to thank. If feel your name should be here, please contact me. Credit where credit is due is very important to me, and to making the Linux community a better place.
-
 ## Contents
 
 1. [Disclaimer](#disclaimer) 
@@ -38,29 +13,17 @@ A guide that is no doubt better than mine. Learning a few things from his implem
 3. [Prerequisites](#prerequisites) and [Assumptions](#assumptions)
 4. [Procedure](#procedure)
 
-# Disclaimer
+### Disclaimer
 You are completely responsible for your hardware and software. This guide makes no guarentees that the process will work for you, or will not void your waranty on various parts or break your computer in some way. Everything from here on out is at your own risk. 
 
-# Background
-Historically, VFIO passthrough has been built on a very specific model. I.E.
-
-* 2 GPUs, 1 for the host, and one for the VM
-* 2 monitors *OR* a monitor with 2 inputs *OR* a KVM switch
-
-I personally, as well as some of you out there, might not have those things available. Maybe You've got a Mini-ITX build with no iGPU. Or maybe you're poor like me, and can't shell out for new computer components without some financial  planning before hand.
-
-Whatever your reason is. VFIO is still possible. But with caveats. Here's some advantages and disadvantages of this model.
-
-This setup model is a lot like dual booting, without actually rebooting.
-
-# Advantages
+### Advantages
 * As already stated, this model only requires one GPU
 * The ability to switch back and forth between different OSes with FULL use of a discrete graphics processor (Linux on Host with full GPU, Windows 10 Guest with Full GPU, MacOS guest with full GPU)
 * Bragging rights
 * Could be faster than dual booting (this depends on your system)
 * Using virtual disk images (like qcow) gives you management of snapshots, making breaking your guest os easy to recover from.
 
-# Disadvantages
+### Disadvantages
 * Can only use one OS at a time.
 	- Once the VM is running, it's basically like running that as your main OS. You  will be logged out of your user on the host, but will be unable to manage the host locally at all. You can still use ssh/vnc/xrdp to manage the host.
 * There are still some quirks (I need your help to iron these out!)
@@ -71,9 +34,22 @@ This setup model is a lot like dual booting, without actually rebooting.
 
 For my personal use case. This model is worth it to me and it might be for you too!
 
-# Prerequisites and Assumptions
+### Prerequisites
 
-## Assumptions
+1. A working Libvirt VM or Qemu script for your guest OS.
+2. IOMMU enabled and Sane IOMMU groups
+3. The Following Tools
+    * A hex editor 
+
+	* (Optional) [Nvidia ROM Patcher](https://github.com/Matoking/NVIDIA-vBIOS-VFIO-Patcher)
+	* (Optional) [nvflash for dumping your GPU bios](https://www.techpowerup.com/download/nvidia-nvflash/)
+		- [Techpowerup](https://www.techpowerup.com/vgabios/) also has a database of roms for your corresponding video card model
+	* (If using Libvirt) [The Libvirt Hook Helper](https://passthroughpo.st/simple-per-vm-libvirt-hooks-with-the-vfio-tools-hook-helper/)
+	* (Optional) Another machine to SSH/VNC to your host with for testing might be useful
+
+With all this ready. Let's move on to how to actually do this.
+
+### Assumptions
 This guide is going to assume a few things
 
 1. You have a system capable of VFIO passthrough. I.E. a processors that supports IOMMU, sane IOMMU groups, and etc.
@@ -89,24 +65,10 @@ Follow the instructions found [here][arch_wiki]
 
 **Skip the Isolating the GPU section** We are not going to do that in this method as we still want the host to have access to it. I will cover this again in the procedure section.
 
-## Prerequisites
 
-1. A working Libvirt VM or Qemu script for your guest OS.
-2. IOMMU enabled and Sane IOMMU groups
-3. The Following Tools
-    * A hex editor 
+## Procedure
 
-	* (Optional) [Nvidia ROM Patcher](https://github.com/Matoking/NVIDIA-vBIOS-VFIO-Patcher)
-	* (Optional) [nvflash for dumping your GPU bios](https://www.techpowerup.com/download/nvidia-nvflash/)
-		- [Techpowerup](https://www.techpowerup.com/vgabios/) also has a database of roms for your corresponding video card model
-	* (If using Libvirt) [The Libvirt Hook Helper](https://passthroughpo.st/simple-per-vm-libvirt-hooks-with-the-vfio-tools-hook-helper/)
-	* (Optional) Another machine to SSH/VNC to your host with for testing might be useful
-
-With all this ready. Let's move on to how to actually do this.
-
-# Procedure
-
-## Patching the GPU Rom for the VM
+### Patching the GPU Rom for the VM
 First of all, we need a usable ROM for the VM. When the boot GPU is already initialized, you're going to get an error from QEMU about usage count. This will fix that problem
 
 1. Get a rom for your GPU
@@ -118,9 +80,9 @@ First of all, we need a usable ROM for the VM. When the boot GPU is already init
 The Nvidia vBios Patcher currently only works with nvidia 10 Series GPUs. if you have a different GPU, try the manual method
 
 In the directory where you saved the original vbios, use the patcher tool.
-````
+```
 python nvidia_vbios_vfio_patcher.py -i <ORIGINAL_ROM> -o <PATCHED_ROM>
-````
+```
 Now you should have a patched vbios file, which you should place where you can remember it later. I store mine with other libvirt files in ````/var/lib/libvirt/vbios/````
 
 #### Manually 
@@ -140,16 +102,16 @@ Save!
 	* In libvirt, use "+ Add Hardware" -> "PCI Host Device" to add the video card and audio device
 4. Edit the libvirt XML file for the VM and add the patched vbios file that we've generated
 
-````
+```
 sudo virsh edit {VM Name}
-````
-````
+```
+```
 <hostdev>
 	...
 	<rom file='/var/lib/libvirt/vbios/patched-bios.bin'/>
 	...
 </hostdev>
-````
+```
 5. Save and close the XML file
 
 ## Setting up Libvirt hooks
@@ -158,7 +120,7 @@ Using libvirt hooks will allow us to automatically run scripts before the VM is 
 
 Using the instructions [here](https://passthroughpo.st/simple-per-vm-libvirt-hooks-with-the-vfio-tools-hook-helper/) to install the base scripts, you'll find a directory structure that now looks like this:
 
-```
+``` bash
 /etc/libvirt/hooks
 ├── qemu <- The script that does the magic
 └── qemu.d
@@ -290,4 +252,30 @@ Let me know your success and failure stories.
 
 #### [Fuel my coffee addiction or help me test new hardware](https://www.paypal.com/donate?business=87AQBT5TGFRJS&item_name=Github+Testing&currency_code=USD)
 #### Always appreciated, never required.
+
+
+## Special Thanks to:
+
+### [joeknock90](https://github.com/joeknock90)
+This guide was forked from his repo. 
+
+### [The Passthrough post](https://passthroughpo.st)
+For hosting news and information about VFIO passthrough, and for the libvirt/qemu hook helper in this guide.
+
+### andre-ritcher
+For providing the vfio-pci-bind tool. A tool that is no longer used in this guide, but was previously used and he still deserves thanks.
+
+### Matoking
+For the Nvidia ROM patcher. Making passing the boot gpu to the VM without GPU bios problems.
+
+### Sporif
+For diagnosing, developing, and testing methods to successfully rebind the EFI-Framebuffer when passing the video card back to the host OS.
+
+### droidman
+For instructions on manually editing the vBIOS hex for use with VFIO passthrough
+
+### [Yuri Alek](https://gitlab.com/YuriAlek/vfio)
+A guide that is no doubt better than mine. Learning a few things from his implementation that can help me out a bit. This guide depends on libvirt at the base where as his has implementations that do not. 
+
+#### So many other people and organizations I need to thank. If feel your name should be here, please contact me. Credit where credit is due is very important to me, and to making the Linux community a better place.
 
