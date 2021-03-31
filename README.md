@@ -5,22 +5,26 @@
 This guide is to help people through the process of using GPU Passthrough via libvirt/virt-manager on systems that only have one GPU. 
 
 ## Special Thanks to:
-### [The Passthrough post](https://passthroughpo.st)
+
+#### [joeknock90](https://github.com/joeknock90)
+This guide was forked from his repo. 
+
+#### [The Passthrough post](https://passthroughpo.st)
 For hosting news and information about VFIO passthrough, and for the libvirt/qemu hook helper in this guide.
 
-### andre-ritcher
+#### andre-ritcher
 For providing the vfio-pci-bind tool. A tool that is no longer used in this guide, but was previously used and he still deserves thanks.
 
-### Matoking
+#### Matoking
 For the Nvidia ROM patcher. Making passing the boot gpu to the VM without GPU bios problems.
 
-### Sporif
+#### Sporif
 For diagnosing, developing, and testing methods to successfully rebind the EFI-Framebuffer when passing the video card back to the host OS.
 
-### droidman
+#### droidman
 For instructions on manually editing the vBIOS hex for use with VFIO passthrough
 
-### [Yuri Alek](https://gitlab.com/YuriAlek/vfio)
+#### [Yuri Alek](https://gitlab.com/YuriAlek/vfio)
 A guide that is no doubt better than mine. Learning a few things from his implementation that can help me out a bit. This guide depends on libvirt at the base where as his has implementations that do not. 
 
 #### So many other people and organizations I need to thank. If feel your name should be here, please contact me. Credit where credit is due is very important to me, and to making the Linux community a better place.
